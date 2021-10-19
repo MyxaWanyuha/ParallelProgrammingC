@@ -13,8 +13,8 @@
 #define TRUE 1
 #define N 2
 int turn;
-int interested[N];
-void enter_region(int process);
+int interested[N] = {0,0};
+void enter_region(int process)
 {
     int other;
     other = 1 - process;
@@ -28,37 +28,37 @@ void leave_region(int process)
     interested[process] = FALSE;
 }
 
+typedef struct
+{
+    char c;
+    int id;
+} thread_data;
+
 #define size 10
 char g_string[size + 1];
 
-void thread_func(char key)
+void thread_func(thread_data* data)
 {
-    pthread_mutex_lock(&mutex);
+    enter_region(data->id);
     for(int i = 0; i < size; ++i)
     {
-        g_string[i] = key;
+        g_string[i] = data->c;
         Sleep(50);
     }
     printf("%s\n", g_string);
-    pthread_mutex_unlock(&mutex);
+    leave_region(data->id);
 }
 
 void* work_for_thread(void* arg)
 {
-    thread_func((char)arg);
+    thread_func((thread_data*)arg);
     return NULL;
 }
 
 int main()
 {
     g_string[size] = '\0';
-    int threads_count = 0;
-    printf("thread count: ");
-    if(scanf("%d", &threads_count) != 1 || threads_count < 0)
-    {
-        fprintf(stderr, "Bad input!\n");
-        return -1;
-    }
+    const int threads_count = 2;
 
     pthread_t* threads = (pthread_t*)calloc(threads_count, sizeof(pthread_t));
     if( threads == NULL )
@@ -67,10 +67,15 @@ int main()
         exit(-2);
     }
 
-    pthread_mutex_init(&mutex, NULL);
+    thread_data datas[2];
+    datas[0].c = 'a';
+    datas[0].id = 0;
+    datas[1].c = 'b';
+    datas[1].id = 1;
+
     for(char i = 0; i < threads_count; ++i)
     {
-        int t = pthread_create(&threads[i], NULL, work_for_thread, (void*)('a' + i));
+        int t = pthread_create(&threads[i], NULL, work_for_thread, (void*)&datas[i]);
         if(t != 0)
         {
             fprintf(stderr, "Can't create thread!\n");
@@ -83,7 +88,6 @@ int main()
         pthread_join( threads[ i ], NULL );
     }
 
-    pthread_mutex_destroy(&mutex);
     free(threads);
     return 0;
 }
